@@ -26,6 +26,13 @@ const IS_PROD = process.env.NODE_ENV === "production";
 const SESSION_SECRET =
     process.env.SESSION_SECRET || "campusbook-secret-key-2024";
 
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/campusbook";
+
+if (IS_PROD && !process.env.MONGODB_URI) {
+    console.error("❌ CRITICAL: MONGODB_URI environment variable is missing in production!");
+    process.exit(1);
+}
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.set("trust proxy", 1);
 app.use(express.json());
@@ -37,7 +44,8 @@ app.use(
         resave: false,
         saveUninitialized: false,
         store: MongoStore.create({
-            client: mongoose.connection.getClient() as any
+            mongoUrl: MONGODB_URI,
+            ttl: 24 * 60 * 60 // 1 day
         }),
         cookie: {
             secure: IS_PROD,
