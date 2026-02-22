@@ -9,6 +9,7 @@ import { Server as SocketIOServer } from "socket.io";
 import MongoStore from "connect-mongo";
 import path from "path";
 import { fileURLToPath } from "url";
+import mongoose from "mongoose";
 import * as XLSX from "xlsx";
 import { connectDB } from "./db.js";
 import { UserModel, HallModel, BookingModel } from "./models.js";
@@ -22,8 +23,6 @@ const io = new SocketIOServer(httpServer, {
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const IS_PROD = process.env.NODE_ENV === "production";
-const MONGO_URI =
-    process.env.MONGODB_URI || "mongodb://localhost:27017/campusbook";
 const SESSION_SECRET =
     process.env.SESSION_SECRET || "campusbook-secret-key-2024";
 
@@ -37,7 +36,9 @@ app.use(
         secret: SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
-        store: MongoStore.create({ mongoUrl: MONGO_URI }),
+        store: MongoStore.create({
+            client: mongoose.connection.getClient() as any
+        }),
         cookie: {
             secure: IS_PROD,
             sameSite: IS_PROD ? "none" : "lax",
