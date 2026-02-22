@@ -11,7 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import * as XLSX from "xlsx";
-import { connectDB } from "./db.js";
+import { connectDB, DB_URI } from "./db.js";
 import { UserModel, HallModel, BookingModel } from "./models.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,16 +22,9 @@ const io = new SocketIOServer(httpServer, {
 });
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
-const IS_PROD = process.env.NODE_ENV === "production";
+const IS_PROD = process.env.NODE_ENV === "production" || !!process.env.RENDER;
 const SESSION_SECRET =
     process.env.SESSION_SECRET || "campusbook-secret-key-2024";
-
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/campusbook";
-
-if (IS_PROD && !process.env.MONGODB_URI) {
-    console.error("❌ CRITICAL: MONGODB_URI environment variable is missing in production!");
-    process.exit(1);
-}
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.set("trust proxy", 1);
@@ -44,7 +37,7 @@ app.use(
         resave: false,
         saveUninitialized: false,
         store: MongoStore.create({
-            mongoUrl: MONGODB_URI,
+            mongoUrl: DB_URI,
             ttl: 24 * 60 * 60 // 1 day
         }),
         cookie: {
