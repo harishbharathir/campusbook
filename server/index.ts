@@ -28,6 +28,7 @@ const SESSION_SECRET =
     process.env.SESSION_SECRET || "campusbook-secret-key-2024";
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -374,9 +375,16 @@ async function seedAdmin() {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 (async () => {
-    await connectDB();
-    await seedAdmin();
-    httpServer.listen(PORT, () => {
-        console.log(`🚀 CampusBook server running on http://localhost:${PORT}`);
-    });
+    try {
+        console.log("🎬 Starting CampusBook server...");
+        await connectDB();
+        await seedAdmin();
+        httpServer.listen(PORT, "0.0.0.0", () => {
+            console.log(`🚀 CampusBook server running on http://0.0.0.0:${PORT}`);
+            console.log(`🌍 Environment: ${IS_PROD ? "production" : "development"}`);
+        });
+    } catch (err) {
+        console.error("💥 CRITICAL: Server failed to start:", err);
+        process.exit(1);
+    }
 })();
