@@ -1,0 +1,14 @@
+{
+    "username": "admin",
+    "password": "$2a$10$yR67Vi4aAe/oa2CaQ.C.9.hWPquIe5lRNeiQlXHTDQSw5g/ZGzLdm",
+    "role": "admin",
+    "name": "Administrator",
+    "email": "",
+    "department": "",
+    "createdAt": {
+        "$date": "2026-02-22T00:00:00.000Z"
+    },
+    "updatedAt": {
+        "$date": "2026-02-22T00:00:00.000Z"
+    }
+}

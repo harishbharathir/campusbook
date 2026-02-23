@@ -3,14 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { format, isFuture, parseISO } from "date-fns";
 import {
-    Building2, CalendarDays, Search, X, Clock, AlertCircle, Loader2
+    Building2, CalendarDays, Search, X, Clock, AlertCircle, Loader2, Download, Lock
 } from "lucide-react";
 import DashboardLayout from "./dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BookingCalendar from "@/components/booking-calendar";
@@ -38,6 +40,8 @@ export default function FacultyDashboard() {
     const [selectedHall, setSelectedHall] = useState<Hall | null>(null);
     const [bookingDate, setBookingDate] = useState<Date>(new Date());
     const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
 
     const { data: halls = [] } = useQuery<Hall[]>({
         queryKey: ["/api/halls"],
@@ -98,6 +102,25 @@ export default function FacultyDashboard() {
         onError: (e: Error) => toast.error(e.message),
     });
 
+    const changePasswordMut = useMutation({
+        mutationFn: async () => {
+            if (passwordForm.newPassword !== passwordForm.confirmPassword) throw new Error("Passwords do not match");
+            const res = await apiRequest("POST", "/api/auth/change-password", {
+                currentPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword
+            });
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.message);
+            return d;
+        },
+        onSuccess: () => {
+            toast.success("Password updated!");
+            setChangePasswordOpen(false);
+            setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        },
+        onError: (e: Error) => toast.error(e.message),
+    });
+
     const hallMap: Record<string, string> = {};
     halls.forEach((h) => (hallMap[h._id] = h.name));
 
@@ -127,229 +150,266 @@ export default function FacultyDashboard() {
     return (
         <DashboardLayout user={user}>
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-2xl font-bold gradient-text">Faculty Dashboard</h1>
-                    <p className="text-muted-foreground text-sm mt-1">Book halls and manage your reservations</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold gradient-text">Faculty Dashboard</h1>
+                        <p className="text-muted-foreground text-sm mt-1">Book halls and manage your reservations</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open("/api/bookings/export/my-excel", "_blank")}>
+                            <Download className="w-4 h-4" /> Export My Bookings
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setChangePasswordOpen(true)}>
+                            <Lock className="w-4 h-4" /> Change Password
+                        </Button>
+                    </div>
                 </div>
+            </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[
-                        { title: "Today's Bookings", value: todayBookings.length, color: "bg-blue-500/15 text-blue-400" },
-                        { title: "Total Bookings", value: myBookings.length, color: "bg-emerald-500/15 text-emerald-400" },
-                        { title: "Available Halls", value: halls.length, color: "bg-purple-500/15 text-purple-400" },
-                        { title: "Pending Requests", value: pendingCount, color: "bg-amber-500/15 text-amber-400" },
-                    ].map((s, i) => (
-                        <motion.div key={s.title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                            <Card className="glass-card border-0">
-                                <CardContent className="p-5">
-                                    <p className="text-sm text-muted-foreground">{s.title}</p>
-                                    <p className="text-3xl font-bold mt-1">{s.value}</p>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { title: "Today's Bookings", value: todayBookings.length, color: "bg-blue-500/15 text-blue-400" },
+                    { title: "Total Bookings", value: myBookings.length, color: "bg-emerald-500/15 text-emerald-400" },
+                    { title: "Available Halls", value: halls.length, color: "bg-purple-500/15 text-purple-400" },
+                    { title: "Pending Requests", value: pendingCount, color: "bg-amber-500/15 text-amber-400" },
+                ].map((s, i) => (
+                    <motion.div key={s.title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                        <Card className="glass-card border-0">
+                            <CardContent className="p-5">
+                                <p className="text-sm text-muted-foreground">{s.title}</p>
+                                <p className="text-3xl font-bold mt-1">{s.value}</p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                ))}
+            </div>
 
-                {/* Tabs */}
-                <Tabs defaultValue="book" className="space-y-4">
-                    <TabsList>
-                        <TabsTrigger value="book" className="gap-1.5"><Building2 className="w-3.5 h-3.5" />Book Halls</TabsTrigger>
-                        <TabsTrigger value="mybookings" className="gap-1.5"><CalendarDays className="w-3.5 h-3.5" />My Bookings</TabsTrigger>
-                        <TabsTrigger value="calendar" className="gap-1.5"><Clock className="w-3.5 h-3.5" />Calendar View</TabsTrigger>
-                    </TabsList>
+            {/* Tabs */}
+            <Tabs defaultValue="book" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="book" className="gap-1.5"><Building2 className="w-3.5 h-3.5" />Book Halls</TabsTrigger>
+                    <TabsTrigger value="mybookings" className="gap-1.5"><CalendarDays className="w-3.5 h-3.5" />My Bookings</TabsTrigger>
+                    <TabsTrigger value="calendar" className="gap-1.5"><Clock className="w-3.5 h-3.5" />Calendar View</TabsTrigger>
+                </TabsList>
 
-                    {/* ── BOOK HALLS ────────────────────────────────────────────────── */}
-                    <TabsContent value="book">
-                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input placeholder="Search halls..." className="pl-9" value={hallSearch} onChange={(e) => setHallSearch(e.target.value)} />
-                            </div>
-                            <Select value={capacityFilter} onValueChange={setCapacityFilter}>
-                                <SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Capacities</SelectItem>
-                                    <SelectItem value="small">Small (&lt;60)</SelectItem>
-                                    <SelectItem value="medium">Medium (60–120)</SelectItem>
-                                    <SelectItem value="large">Large (&gt;120)</SelectItem>
-                                </SelectContent>
-                            </Select>
+                {/* ── BOOK HALLS ────────────────────────────────────────────────── */}
+                <TabsContent value="book">
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input placeholder="Search halls..." className="pl-9" value={hallSearch} onChange={(e) => setHallSearch(e.target.value)} />
                         </div>
+                        <Select value={capacityFilter} onValueChange={setCapacityFilter}>
+                            <SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Capacities</SelectItem>
+                                <SelectItem value="small">Small (&lt;60)</SelectItem>
+                                <SelectItem value="medium">Medium (60–120)</SelectItem>
+                                <SelectItem value="large">Large (&gt;120)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
 
-                        {filteredHalls.length === 0 ? (
-                            <div className="text-center py-16 text-muted-foreground">
-                                <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p>No halls found. Ask your admin to add halls.</p>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {filteredHalls.map((hall) => (
-                                        <Card
-                                            key={hall._id}
-                                            className={`glass-card border-0 cursor-pointer transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 ${selectedHall?._id === hall._id ? "border-primary/50 bg-primary/8" : ""}`}
-                                            onClick={() => setSelectedHall(selectedHall?._id === hall._id ? null : hall)}
-                                        >
-                                            <CardHeader className="pb-3">
-                                                <CardTitle className="text-sm flex items-center justify-between">
-                                                    {hall.name}
-                                                    {selectedHall?._id === hall._id && <Badge variant="default" className="text-xs">Selected</Badge>}
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-2 text-sm text-muted-foreground">
-                                                <p><span className="font-medium text-foreground">Capacity:</span> {hall.capacity}</p>
-                                                {hall.location && <p><span className="font-medium text-foreground">Location:</span> {hall.location}</p>}
-                                                {hall.amenities && (
-                                                    <div className="flex flex-wrap gap-1 pt-1">
-                                                        {hall.amenities.split(",").map((a) => (
-                                                            <Badge key={a} variant="outline" className="text-xs">{a.trim()}</Badge>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-
-                                {selectedHall && (
-                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 glass-card p-5 rounded-xl">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="font-semibold">Book {selectedHall.name}</h3>
-                                            <Button variant="ghost" size="icon" onClick={() => setSelectedHall(null)}><X className="w-4 h-4" /></Button>
-                                        </div>
-                                        <div className="grid lg:grid-cols-[260px_1fr] gap-6">
-                                            <div className="glass rounded-xl p-2">
-                                                <CalendarPicker
-                                                    mode="single"
-                                                    selected={bookingDate}
-                                                    onSelect={(d) => d && setBookingDate(d)}
-                                                    disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                                                    className="w-full"
-                                                />
-                                            </div>
-                                            <BookingCalendar hall={selectedHall} userId={user._id} selectedDate={bookingDate} />
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </>
-                        )}
-                    </TabsContent>
-
-                    {/* ── MY BOOKINGS ───────────────────────────────────────────────── */}
-                    <TabsContent value="mybookings">
-                        {/* Upcoming */}
-                        {upcoming.length > 0 && (
-                            <div className="mb-6">
-                                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Upcoming Bookings</h3>
-                                <div className="grid sm:grid-cols-3 gap-3">
-                                    {upcoming.map((b) => (
-                                        <Card key={b._id} className="glass-card border-0 border-l-2 border-l-primary/50">
-                                            <CardContent className="p-4 space-y-1">
-                                                <p className="font-semibold text-sm">{hallMap[b.hallId] || b.hallId}</p>
-                                                <p className="text-xs text-muted-foreground">{formatDate(b.bookingDate)} · {formatPeriod(b.period)}</p>
-                                                <p className="text-xs truncate">{b.bookingReason}</p>
-                                                <Badge variant={getStatusBadgeVariant(b.status)} className="text-xs capitalize">{b.status}</Badge>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* All bookings */}
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Bookings</h3>
-                        {myBookings.length === 0 ? (
-                            <div className="text-center py-16 text-muted-foreground">
-                                <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p>No bookings yet. Book a hall to get started!</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {[...myBookings].sort((a, b) => b.bookingDate.localeCompare(a.bookingDate)).map((b) => (
-                                    <Card key={b._id} className="glass-card border-0">
-                                        <CardContent className="p-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 min-w-0 grid sm:grid-cols-3 gap-2 text-sm">
-                                                    <div>
-                                                        <p className="font-medium truncate">{hallMap[b.hallId] || b.hallId}</p>
-                                                        <p className="text-xs text-muted-foreground truncate">{b.bookingReason}</p>
-                                                    </div>
-                                                    <div className="text-muted-foreground text-xs">
-                                                        <p>{formatDate(b.bookingDate)}</p>
-                                                        <p>{formatPeriod(b.period)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <Badge variant={getStatusBadgeVariant(b.status)} className="text-xs capitalize">{b.status}</Badge>
-                                                        {b.rejectionReason && <p className="text-xs text-red-400 mt-1">{b.rejectionReason}</p>}
-                                                    </div>
+                    {filteredHalls.length === 0 ? (
+                        <div className="text-center py-16 text-muted-foreground">
+                            <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p>No halls found. Ask your admin to add halls.</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {filteredHalls.map((hall) => (
+                                    <Card
+                                        key={hall._id}
+                                        className={`glass-card border-0 cursor-pointer transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 ${selectedHall?._id === hall._id ? "border-primary/50 bg-primary/8" : ""}`}
+                                        onClick={() => setSelectedHall(selectedHall?._id === hall._id ? null : hall)}
+                                    >
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center justify-between">
+                                                {hall.name}
+                                                {selectedHall?._id === hall._id && <Badge variant="default" className="text-xs">Selected</Badge>}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2 text-sm text-muted-foreground">
+                                            <p><span className="font-medium text-foreground">Capacity:</span> {hall.capacity}</p>
+                                            {hall.location && <p><span className="font-medium text-foreground">Location:</span> {hall.location}</p>}
+                                            {hall.amenities && (
+                                                <div className="flex flex-wrap gap-1 pt-1">
+                                                    {hall.amenities.split(",").map((a) => (
+                                                        <Badge key={a} variant="outline" className="text-xs">{a.trim()}</Badge>
+                                                    ))}
                                                 </div>
-                                                {isCancellable(b) && (
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:bg-red-500/10 shrink-0" onClick={() => cancelMut.mutate(b._id)} disabled={cancelMut.isPending}>
-                                                        <X className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                )}
-                                            </div>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 ))}
                             </div>
-                        )}
-                    </TabsContent>
 
-                    {/* ── CALENDAR VIEW ─────────────────────────────────────────────── */}
-                    <TabsContent value="calendar">
-                        <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-                            <div className="glass-card rounded-xl p-3">
-                                <CalendarPicker mode="single" selected={calendarDate} onSelect={(d) => d && setCalendarDate(d)} className="w-full" />
-                            </div>
-                            <div className="space-y-4">
-                                <h3 className="font-semibold">{format(calendarDate, "MMMM d, yyyy")}</h3>
-                                {halls.length === 0 ? (
-                                    <p className="text-muted-foreground text-sm">No halls configured.</p>
-                                ) : (
-                                    halls.map((hall) => (
-                                        <Card key={hall._id} className="glass-card border-0">
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-sm">{hall.name}</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="grid grid-cols-4 gap-2">
-                                                    {Object.entries(PERIODS).map(([pStr, time]) => {
-                                                        const period = parseInt(pStr);
-                                                        const booking = calendarBookings.find((b) => b.hallId === hall._id && b.period === period);
-                                                        const isMe = booking?.userId === user._id;
-                                                        return (
-                                                            <div
-                                                                key={period}
-                                                                className={`rounded-lg p-2 text-center text-xs border ${!booking ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" :
-                                                                        isMe ? "border-blue-500/40 bg-blue-500/10 text-blue-400" :
-                                                                            "border-red-500/30 bg-red-500/10 text-red-400"
-                                                                    }`}
-                                                                title={booking ? `${booking.facultyName || "Unknown"}: ${booking.bookingReason}` : "Available"}
-                                                            >
-                                                                <div className="font-bold">P{period}</div>
-                                                                <div className="text-[10px] mt-0.5 opacity-75">
-                                                                    {!booking ? "Free" : isMe ? "Yours" : "Taken"}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-                                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Available</span>
-                                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Your Booking</span>
-                                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Booked</span>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))
-                                )}
+                            {selectedHall && (
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 glass-card p-5 rounded-xl">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold">Book {selectedHall.name}</h3>
+                                        <Button variant="ghost" size="icon" onClick={() => setSelectedHall(null)}><X className="w-4 h-4" /></Button>
+                                    </div>
+                                    <div className="grid lg:grid-cols-[260px_1fr] gap-6">
+                                        <div className="glass rounded-xl p-2">
+                                            <CalendarPicker
+                                                mode="single"
+                                                selected={bookingDate}
+                                                onSelect={(d) => d && setBookingDate(d)}
+                                                disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <BookingCalendar hall={selectedHall} userId={user._id} selectedDate={bookingDate} />
+                                    </div>
+                                </motion.div>
+                            )}
+                        </>
+                    )}
+                </TabsContent>
+
+                {/* ── MY BOOKINGS ───────────────────────────────────────────────── */}
+                <TabsContent value="mybookings">
+                    {/* Upcoming */}
+                    {upcoming.length > 0 && (
+                        <div className="mb-6">
+                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Upcoming Bookings</h3>
+                            <div className="grid sm:grid-cols-3 gap-3">
+                                {upcoming.map((b) => (
+                                    <Card key={b._id} className="glass-card border-0 border-l-2 border-l-primary/50">
+                                        <CardContent className="p-4 space-y-1">
+                                            <p className="font-semibold text-sm">{hallMap[b.hallId] || b.hallId}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDate(b.bookingDate)} · {formatPeriod(b.period)}</p>
+                                            <p className="text-xs truncate">{b.bookingReason}</p>
+                                            <Badge variant={getStatusBadgeVariant(b.status)} className="text-xs capitalize">{b.status}</Badge>
+                                        </CardContent>
+                                    </Card>
+                                ))}
                             </div>
                         </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
-        </DashboardLayout>
+                    )}
+
+                    {/* All bookings */}
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Bookings</h3>
+                    {myBookings.length === 0 ? (
+                        <div className="text-center py-16 text-muted-foreground">
+                            <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p>No bookings yet. Book a hall to get started!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {[...myBookings].sort((a, b) => b.bookingDate.localeCompare(a.bookingDate)).map((b) => (
+                                <Card key={b._id} className="glass-card border-0">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 min-w-0 grid sm:grid-cols-3 gap-2 text-sm">
+                                                <div>
+                                                    <p className="font-medium truncate">{hallMap[b.hallId] || b.hallId}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{b.bookingReason}</p>
+                                                </div>
+                                                <div className="text-muted-foreground text-xs">
+                                                    <p>{formatDate(b.bookingDate)}</p>
+                                                    <p>{formatPeriod(b.period)}</p>
+                                                </div>
+                                                <div>
+                                                    <Badge variant={getStatusBadgeVariant(b.status)} className="text-xs capitalize">{b.status}</Badge>
+                                                    {b.rejectionReason && <p className="text-xs text-red-400 mt-1">{b.rejectionReason}</p>}
+                                                </div>
+                                            </div>
+                                            {isCancellable(b) && (
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:bg-red-500/10 shrink-0" onClick={() => cancelMut.mutate(b._id)} disabled={cancelMut.isPending}>
+                                                    <X className="w-3.5 h-3.5" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </TabsContent>
+
+                {/* ── CALENDAR VIEW ─────────────────────────────────────────────── */}
+                <TabsContent value="calendar">
+                    <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+                        <div className="glass-card rounded-xl p-3">
+                            <CalendarPicker mode="single" selected={calendarDate} onSelect={(d) => d && setCalendarDate(d)} className="w-full" />
+                        </div>
+                        <div className="space-y-4">
+                            <h3 className="font-semibold">{format(calendarDate, "MMMM d, yyyy")}</h3>
+                            {halls.length === 0 ? (
+                                <p className="text-muted-foreground text-sm">No halls configured.</p>
+                            ) : (
+                                halls.map((hall) => (
+                                    <Card key={hall._id} className="glass-card border-0">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm">{hall.name}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {Object.entries(PERIODS).map(([pStr, time]) => {
+                                                    const period = parseInt(pStr);
+                                                    const booking = calendarBookings.find((b) => b.hallId === hall._id && b.period === period);
+                                                    const isMe = booking?.userId === user._id;
+                                                    return (
+                                                        <div
+                                                            key={period}
+                                                            className={`rounded-lg p-2 text-center text-xs border ${!booking ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" :
+                                                                isMe ? "border-blue-500/40 bg-blue-500/10 text-blue-400" :
+                                                                    "border-red-500/30 bg-red-500/10 text-red-400"
+                                                                }`}
+                                                            title={booking ? `${booking.facultyName || "Unknown"}: ${booking.bookingReason}` : "Available"}
+                                                        >
+                                                            <div className="font-bold">P{period}</div>
+                                                            <div className="text-[10px] mt-0.5 opacity-75">
+                                                                {!booking ? "Free" : isMe ? "Yours" : "Taken"}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Available</span>
+                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Your Booking</span>
+                                                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Booked</span>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
+
+            {/* Change Password Dialog */}
+            <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle className="flex items-center gap-2"><Lock className="w-5 h-5 text-primary" />Change Password</DialogTitle></DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label>Current Password</Label>
+                            <Input type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>New Password</Label>
+                            <Input type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>Confirm New Password</Label>
+                            <Input type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setChangePasswordOpen(false)}>Cancel</Button>
+                        <Button onClick={() => changePasswordMut.mutate()} disabled={!passwordForm.currentPassword || !passwordForm.newPassword || changePasswordMut.isPending}>
+                            {changePasswordMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Update Password
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </DashboardLayout >
     );
 }

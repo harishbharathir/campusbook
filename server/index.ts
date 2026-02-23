@@ -153,6 +153,25 @@ authRouter.get("/me", (req, res) => {
     res.json({ user: serializeUser(req.user) });
 });
 
+authRouter.post("/change-password", requireAuth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const user = await UserModel.findById((req.user as any)._id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const match = await bcrypt.compare(currentPassword, user.password);
+        if (!match) return res.status(400).json({ message: "Incorrect current password" });
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+        user.password = hashed;
+        await user.save();
+
+        res.json({ message: "Password changed successfully" });
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // ─── Hall Routes ──────────────────────────────────────────────────────────────
 const hallRouter = express.Router();
 
@@ -217,6 +236,47 @@ bookingRouter.get("/export/excel", requireAdmin, async (_req, res) => {
         XLSX.utils.book_append_sheet(wb, ws, "Bookings");
         const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
         res.setHeader("Content-Disposition", "attachment; filename=bookings.xlsx");
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.send(buf);
+    } catch (err: any) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+bookingRouter.get("/export/my-excel", requireAuth, async (req, res) => {
+    try {
+        const user = req.user as any;
+        const bookings = await BookingModel.find({ userId: user._id.toString() }).sort({ createdAt: -1 });
+        const halls = await HallModel.find();
+        const hallMap: Record<string, string> = {};
+        halls.forEach((h) => (hallMap[h._id.toString()] = h.name));
+
+        const PERIODS: Record<number, string> = {
+            1: "9:50 – 10:40",
+            2: "10:40 – 11:30",
+            3: "11:30 – 12:20",
+            4: "12:20 – 1:10",
+            5: "1:25 – 2:15",
+            6: "2:15 – 3:05",
+            7: "3:10 – 4:00",
+            8: "4:00 – 4:50",
+        };
+
+        const data = bookings.map((b) => ({
+            "Hall Name": hallMap[b.hallId] || b.hallId,
+            Date: b.bookingDate,
+            Period: `Period ${b.period} (${PERIODS[b.period] || ""})`,
+            "Booking Reason": b.bookingReason,
+            Status: b.status,
+            "Rejection Reason": b.rejectionReason || "—",
+            "Created At": b.createdAt?.toISOString(),
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "MyBookings");
+        const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+        res.setHeader("Content-Disposition", `attachment; filename=my_bookings_${user.username}.xlsx`);
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         res.send(buf);
     } catch (err: any) {

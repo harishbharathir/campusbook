@@ -67,7 +67,7 @@ export default function AdminDashboard() {
     const [bookingSearch, setBookingSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [hallForm, setHallForm] = useState({ name: "", capacity: "", location: "", amenities: "" });
-    const [facultyForm, setFacultyForm] = useState({ username: "", password: "", name: "", email: "", department: "" });
+    const [facultyForm, setFacultyForm] = useState({ username: "", password: "", name: "", email: "", department: "", role: "faculty" });
 
     // Queries
     const { data: halls = [] } = useQuery<Hall[]>({
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
             return d;
         },
         onSuccess: () => {
-            toast.success("Faculty added!"); setAddFacultyOpen(false); setFacultyForm({ username: "", password: "", name: "", email: "", department: "" });
+            toast.success("Account added!"); setAddFacultyOpen(false); setFacultyForm({ username: "", password: "", name: "", email: "", department: "", role: "faculty" });
             qc.invalidateQueries({ queryKey: ["/api/users"] });
         },
         onError: (e: Error) => toast.error(e.message),
@@ -258,7 +258,7 @@ export default function AdminDashboard() {
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="font-semibold">Faculty Members ({facultyCount})</h2>
                             <Button size="sm" onClick={() => setAddFacultyOpen(true)} className="gap-1.5">
-                                <Plus className="w-4 h-4" /> Add Faculty
+                                <Plus className="w-4 h-4" /> Add User
                             </Button>
                         </div>
                         {facultyUsers.filter(u => u.role === "faculty").length === 0 ? (
@@ -319,8 +319,8 @@ export default function AdminDashboard() {
                                                             <div
                                                                 key={period}
                                                                 className={`rounded-lg p-2 text-center text-xs border ${!booking ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" :
-                                                                        booking.status === "pending" ? "border-amber-500/30 bg-amber-500/10 text-amber-400" :
-                                                                            "border-red-500/30 bg-red-500/10 text-red-400"
+                                                                    booking.status === "pending" ? "border-amber-500/30 bg-amber-500/10 text-amber-400" :
+                                                                        "border-red-500/30 bg-red-500/10 text-red-400"
                                                                     }`}
                                                             >
                                                                 <div className="font-bold">P{period}</div>
@@ -460,6 +460,16 @@ export default function AdminDashboard() {
                                 <Input type={field === "password" ? "password" : "text"} placeholder={label} value={(facultyForm as any)[field]} onChange={(e) => setFacultyForm({ ...facultyForm, [field]: e.target.value })} />
                             </div>
                         ))}
+                        <div className="space-y-1.5">
+                            <Label>Role *</Label>
+                            <Select value={facultyForm.role} onValueChange={(v) => setFacultyForm({ ...facultyForm, role: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="faculty">Faculty</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setAddFacultyOpen(false)}>Cancel</Button>
