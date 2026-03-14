@@ -75,9 +75,28 @@ export default function AuthPage() {
     const isBusy = loginMut.isPending || registerMut.isPending;
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex relative">
+            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50">
+                <img 
+                    src="/TRP_Engineering_College.png" 
+                    alt="TRP Engineering College" 
+                    className="h-16 sm:h-24 w-auto object-contain drop-shadow-md" 
+                />
+            </div>
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50 flex gap-3 sm:gap-4 items-center">
+                <img 
+                    src="/nba-logo.png" 
+                    alt="NBA" 
+                    className="h-12 sm:h-20 w-auto object-contain drop-shadow-md bg-white/10 rounded px-2" 
+                />
+                <img 
+                    src="/naac-logo.png" 
+                    alt="NAAC" 
+                    className="h-12 sm:h-20 w-auto object-contain drop-shadow-md" 
+                />
+            </div>
             {/* Left — Form */}
-            <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 max-w-md mx-auto w-full">
+            <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 max-w-md mx-auto w-full mt-12 sm:mt-0">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -86,11 +105,13 @@ export default function AuthPage() {
                 >
                     {/* Logo */}
                     <div className="text-center space-y-2">
-                        <div className="flex justify-center mb-4">
+                        <h1 className="text-1xl font-extrabold">DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING</h1>
+                        {/* <div className="flex justify-center mb-4">
                             <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center border border-primary/30">
                                 <BookOpen className="w-7 h-7 text-primary" />
                             </div>
-                        </div>
+                        </div> */}
+
                         <h1 className="text-4xl font-extrabold gradient-text">CampusBook</h1>
                         <p className="text-muted-foreground text-sm">University Seminar Hall Reservation</p>
                     </div>

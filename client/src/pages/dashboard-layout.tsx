@@ -36,17 +36,31 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
         <div className="min-h-screen bg-background">
             {/* Header */}
             <header className="sticky top-0 z-40 glass border-b border-white/8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 md:h-24 flex items-center justify-between gap-4">
                     {/* Logo */}
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-                            <BookOpen className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="font-bold text-lg gradient-text">CampusBook</span>
+                        <img 
+                            src="/TRP_Engineering_College.png" 
+                            alt="TRP Engineering College" 
+                            className="h-12 md:h-16 w-auto object-contain" 
+                        />
+                        <span className="font-bold text-lg md:text-xl gradient-text hidden sm:block">CampusBook</span>
                     </div>
 
                     {/* Right side */}
                     <div className="flex items-center gap-3">
+                        <div className="hidden sm:flex items-center gap-3 mr-4 border-r border-white/10 pr-4">
+                            <img 
+                                src="/nba-logo.png" 
+                                alt="NBA" 
+                                className="h-12 md:h-16 w-auto object-contain bg-white/10 rounded px-1.5" 
+                            />
+                            <img 
+                                src="/naac-logo.png" 
+                                alt="NAAC" 
+                                className="h-12 md:h-16 w-auto object-contain" 
+                            />
+                        </div>
                         <div className="flex items-center gap-2 text-sm">
                             <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
                                 {user.role === "admin" ? (
